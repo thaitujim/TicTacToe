@@ -14,8 +14,8 @@ public class ResourceManager {
 	}
 
 	public static void load () {
-		o_sprite = loadTexture("x_sprite.png");
-		x_sprite = loadTexture("o_sprite.png");
+		o_sprite = loadTexture("o_sprite.png");
+		x_sprite = loadTexture("x_sprite.png");
 		cell_sprite = loadTexture("cell_sprite.png");
 	}
 }

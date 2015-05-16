@@ -12,8 +12,7 @@ public class NodeSprite {
 	private int width;
 	private int height;
 	private int type;
-	private int x;
-	private int y;
+	private Point point;
 
 	public int getWidth() {
 		return width;
@@ -31,20 +30,21 @@ public class NodeSprite {
 		this.height = height;
 	}
 
-	public int getX() {
-		return x;
+	public int getType() {
+		return type;
 	}
 
-	public void setX(int x) {
-		this.x = x;
+	public NodeSprite setType(int type) {
+		this.type = type;
+		return this;
 	}
 
-	public int getY() {
-		return y;
+	public Point getPoint() {
+		return point;
 	}
 
-	public void setY(int y) {
-		this.y = y;
+	public void setPoint(Point point) {
+		this.point = point;
 	}
 
 	public NodeSprite() {
@@ -61,13 +61,12 @@ public class NodeSprite {
 		this.width = width;
 		this.height = height;
 		this.type = type;
-		this.x = x;
-		this.y = y;
+		this.point = new Point(x, y);
 	}
 
 	public void draw(SpriteBatch batch) {
-		int posX = x * this.width;
-		int posY = y * this.height;
+		int posX = this.point.getX() * this.width;
+		int posY = this.point.getY() * this.height;
 
 		switch (this.type) {
 		case BLANK_TYPE:
