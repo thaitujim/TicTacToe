@@ -1,24 +1,26 @@
 package com.mygdx.game;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
+
+import sun.net.www.protocol.http.HttpURLConnection.TunnelState;
 
 import com.badlogic.gdx.Gdx;
 
 public class Board {
 
-	public enum TURN {
-		COMPUTER_RACE, HUMAN_RACE,
-		// com: x sprite;
-		// human: o sprite;
-	}
+	public static final int MATRIX_DIMENSION = 8;
+	public static final int CELL_DIMENSION_PIXEL = 64;
+	public static final String MATRIX_X_TYPE = "x";
+	public static final String MATRIX_O_TYPE = "o";
+	public static final String MATRIX_STAR_TYPE = "*";
+	public static final String MATRIX_BLANK_TYPE = "\' \'";
 
-	public static final int MATRIX_DIMENSION = 4;
-	public static final int CELL_DIMENSION_PIXEL = 32;
 	public static final String TAG = Board.class.getName();
-	public NodeSprite[][] matrix;
-	public TURN turn;
-	public NodeSprite computerRace;
+	public String[][] matrix;
+	public String turn;
+	public Point computerRace;
 
 	public Board() {
 		buildMatrix();
@@ -28,49 +30,29 @@ public class Board {
 	// --------------------------------------------------------------------
 	public void buildMatrix() {
 		Gdx.app.log(TAG, "--> buildMatrix");
-		matrix = new NodeSprite[MATRIX_DIMENSION][MATRIX_DIMENSION];
+		matrix = new String[MATRIX_DIMENSION][MATRIX_DIMENSION];
 		Random r = new Random();
 		for (int i = 0; i < MATRIX_DIMENSION; i++) {
 			for (int j = 0; j < MATRIX_DIMENSION; j++) {
-				NodeSprite nodeSprite;
-
 				// int type = r.nextInt() % 3;
-				int type = 0;
+				int type = 2;
 				if (type == 0) {
-					nodeSprite = new NodeSprite(NodeSprite.BLANK_TYPE,
-							CELL_DIMENSION_PIXEL, CELL_DIMENSION_PIXEL, i, j);
+					matrix[i][j] = MATRIX_O_TYPE;
 				} else if (type == 1) {
-					nodeSprite = new NodeSprite(NodeSprite.X_TYPE,
-							CELL_DIMENSION_PIXEL, CELL_DIMENSION_PIXEL, i, j);
+					matrix[i][j] = MATRIX_X_TYPE;
 				} else {
-					nodeSprite = new NodeSprite(NodeSprite.O_TYPE,
-							CELL_DIMENSION_PIXEL, CELL_DIMENSION_PIXEL, i, j);
+					matrix[i][j] = MATRIX_BLANK_TYPE;
 				}
-
-				matrix[i][j] = nodeSprite;
 			}
 		}
-		NodeSprite xSprite = matrix[0][0];
-		matrix[0][0] = xSprite.setType(NodeSprite.X_TYPE);
-
-		NodeSprite oSprite = matrix[MATRIX_DIMENSION - 1][MATRIX_DIMENSION - 1];
-		matrix[MATRIX_DIMENSION - 1][MATRIX_DIMENSION - 1] = oSprite
-				.setType(NodeSprite.O_TYPE);
+		// set default position
+		matrix[0][MATRIX_DIMENSION - 1] = MATRIX_X_TYPE;
+		matrix[MATRIX_DIMENSION - 1][0] = MATRIX_O_TYPE;
 
 	}
 
 	// --------------------------------------------------------------------
-	public void setCellType(Point point, int type) {
-		int x = point.getX();
-		int y = point.getY();
-
-		NodeSprite nodeSprite = matrix[x][y];
-		nodeSprite.setType(NodeSprite.O_TYPE);
-		matrix[x][y] = nodeSprite;
-	}
-
-	// --------------------------------------------------------------------
-	public NodeSprite returnNextMove() {
+	public Point returnNextMove() {
 		if (isGameOver()) {
 			return null;
 		}
@@ -79,31 +61,29 @@ public class Board {
 	}
 
 	// --------------------------------------------------------------------
-	public int minimax(int depth, TURN turn) {
 
-		Gdx.app.log(TAG, "minimax --> depth: " + depth + " - turn: " + turn);
-
+	public int minimax(int depth, String turn) {
 		if (isComputerWin())
 			return +1;
 		if (isHumanWin())
 			return -1;
 
-		ArrayList<NodeSprite> nodeAvailables = getAvailableMoves(turn);
+		Point currentNode = getCurrentNode(turn);
 
-		if (nodeAvailables.isEmpty())
+		ArrayList<Point> pointsAvailable = canMove(currentNode);
+		if (pointsAvailable.isEmpty())
 			return 0;
 
 		int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
 
-		for (int i = 0; i < nodeAvailables.size(); ++i) {
-			NodeSprite nodeSprite = nodeAvailables.get(i);
-			if (turn == TURN.COMPUTER_RACE) {
-				NodeSprite computerMove = nodeSprite.setType(NodeSprite.X_TYPE);
-				Point point = nodeSprite.getPoint();
-
-				placeAMove(point, computerMove);
-
-				int currentScore = minimax(depth + 1, TURN.HUMAN_RACE);
+		for (int i = 0; i < pointsAvailable.size(); ++i) {
+			Point point = pointsAvailable.get(i);
+			String currentValue = matrix[currentNode.getX()][currentNode.getY()];
+			String nextValue = matrix[point.getX()][point.getY()];
+			if (turn == MATRIX_X_TYPE) {
+				placeAMove(currentNode.getX(), currentNode.getY(),
+						point.getX(), point.getY());
+				int currentScore = minimax(depth + 1, MATRIX_O_TYPE);
 				max = Math.max(currentScore, max);
 
 				if (depth == 0)
@@ -111,61 +91,51 @@ public class Board {
 							+ currentScore);
 				if (currentScore >= 0) {
 					if (depth == 0)
-						computerRace = computerMove;
+						computerRace = point;
 				}
 				if (currentScore == 1) {
-					int x = point.getX();
-					int y = point.getY();
-					matrix[x][y] = nodeSprite.setType(NodeSprite.BLANK_TYPE);
+					matrix[currentNode.getX()][currentNode.getY()] = currentValue;
+					matrix[point.getX()][point.getY()] = nextValue;
 					break;
 				}
-				if (i == nodeAvailables.size() - 1 && max < 0) {
+				if (i == pointsAvailable.size() - 1 && max < 0) {
 					if (depth == 0)
-						computerRace = computerMove;
+						computerRace = point;
 				}
-			} else if (turn == TURN.HUMAN_RACE) {
-				NodeSprite humanMove = nodeSprite.setType(NodeSprite.O_TYPE);
-				Point point = nodeSprite.getPoint();
-
-				placeAMove(point, humanMove);
-
-				int currentScore = minimax(depth + 1, TURN.COMPUTER_RACE);
+			} else if (turn == MATRIX_O_TYPE) {
+				placeAMove(currentNode.getX(), currentNode.getY(),
+						point.getX(), point.getY());
+				int currentScore = minimax(depth + 1, MATRIX_X_TYPE);
 				min = Math.min(currentScore, min);
 				if (min == -1) {
-					int x = point.getX();
-					int y = point.getY();
-					matrix[x][y] = nodeSprite.setType(NodeSprite.BLANK_TYPE);
+					matrix[currentNode.getX()][currentNode.getY()] = currentValue;
+					matrix[point.getX()][point.getY()] = nextValue;
 					break;
 				}
 			}
-			Point point = nodeSprite.getPoint();
-			int x = point.getX();
-			int y = point.getY();
-			matrix[x][y] = nodeSprite.setType(NodeSprite.BLANK_TYPE);
+			matrix[point.getX()][point.getY()] = nextValue;
 			// Reset this point
 		}
-		return turn == TURN.COMPUTER_RACE ? max : min;
+		return turn == MATRIX_X_TYPE ? max : min;
 	}
 
 	// --------------------------------------------------------------------
-	public void placeAMove(Point point, NodeSprite nodeSprite) {
-		int i = point.getX();
-		int j = point.getY();
-		matrix[i][j] = nodeSprite;
+	public void placeAMove(int prev_x, int prev_y, int next_x, int next_y) {
+		String currentCell = matrix[prev_x][prev_y];
+		matrix[prev_x][prev_y] = MATRIX_STAR_TYPE;
+		matrix[next_x][next_y] = currentCell;
 	}
 
 	// --------------------------------------------------------------------
-	public ArrayList<NodeSprite> canMove(NodeSprite nodeSprite) {
-		Point point = nodeSprite.getPoint();
+	public ArrayList<Point> canMove(Point point) {
 		int x = point.getX();
 		int y = point.getY();
-		NodeSprite nodeCheck;
-		ArrayList<NodeSprite> listResult = new ArrayList<NodeSprite>();
+		String Check;
+		ArrayList<Point> listResult = new ArrayList<Point>();
 		// check north-side
 		for (int i = y + 1; i < Board.MATRIX_DIMENSION; i++) {
-			nodeCheck = matrix[x][i];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[x][i] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(x, i));
 			else
 				break;
 
@@ -173,63 +143,56 @@ public class Board {
 		// check north-west-side
 		for (int i = x + 1, j = y + 1; i < Board.MATRIX_DIMENSION
 				&& j < Board.MATRIX_DIMENSION; i++, j++) {
-			nodeCheck = matrix[i][j];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[i][j] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(i, j));
 			else
 				break;
 
 		}
 		// check west-side
 		for (int i = x + 1; i < Board.MATRIX_DIMENSION; i++) {
-			nodeCheck = matrix[i][y];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[i][y] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(i, y));
 			else
 				break;
 
 		}
 		// check south-west-side
 		for (int i = x + 1, j = y - 1; i < Board.MATRIX_DIMENSION && j > -1; i++, j--) {
-			nodeCheck = matrix[i][j];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[i][j] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(i, j));
 			else
 				break;
 
 		}
 		// check south-side
 		for (int j = y - 1; j > -1; j--) {
-			nodeCheck = matrix[x][j];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[x][j] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(x, j));
 			else
 				break;
 
 		}
 		// check east-south-side
 		for (int i = x - 1, j = y - 1; i > -1 && j > -1; i--, j--) {
-			nodeCheck = matrix[i][j];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[i][j] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(i, j));
 			else
 				break;
 
 		}
 		// check east-side
 		for (int i = x - 1; i > -1; i--) {
-			nodeCheck = matrix[i][y];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[i][y] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(i, y));
 			else
 				break;
 
 		}
 		// check east-north-side
 		for (int i = x - 1, j = y + 1; i > -1 && j < Board.MATRIX_DIMENSION; i--, j++) {
-			nodeCheck = matrix[i][j];
-			if (nodeCheck.getType() == NodeSprite.BLANK_TYPE)
-				listResult.add(nodeCheck);
+			if (matrix[i][j] == MATRIX_BLANK_TYPE)
+				listResult.add(new Point(i, j));
 			else
 				break;
 
@@ -248,15 +211,14 @@ public class Board {
 
 	// --------------------------------------------------------------------
 	public boolean isComputerWin() {
-		if (turn == TURN.COMPUTER_RACE) {
+		if (turn == MATRIX_X_TYPE) {
 			return false;
 		}
 		// human turn
 		for (int i = 0; i < MATRIX_DIMENSION; i++) {
 			for (int j = 0; j < MATRIX_DIMENSION; j++) {
-				NodeSprite nodeSprite = matrix[i][j];
-				if (nodeSprite.getType() == NodeSprite.O_TYPE) {
-					ArrayList<NodeSprite> moves = canMove(nodeSprite);
+				if (matrix[i][j] == MATRIX_O_TYPE) {
+					ArrayList<Point> moves = canMove(new Point(i, j));
 					if (moves.size() > 0) {
 						return false;
 					}
@@ -268,16 +230,15 @@ public class Board {
 
 	// --------------------------------------------------------------------
 	public boolean isHumanWin() {
-		if (turn == TURN.HUMAN_RACE) {
+		if (turn == MATRIX_O_TYPE) {
 			return false;
 		}
 
 		// computer race
 		for (int i = 0; i < MATRIX_DIMENSION; i++) {
 			for (int j = 0; j < MATRIX_DIMENSION; j++) {
-				NodeSprite nodeSprite = matrix[i][j];
-				if (nodeSprite.getType() == NodeSprite.X_TYPE) {
-					ArrayList<NodeSprite> moves = canMove(nodeSprite);
+				if (matrix[i][j] == MATRIX_X_TYPE) {
+					ArrayList<Point> moves = canMove(new Point(i, j));
 					if (moves.size() > 0) {
 						return false;
 					}
@@ -287,54 +248,38 @@ public class Board {
 		return true;
 	}
 
-	public ArrayList<NodeSprite> getAvailableMoves(TURN turn) {
-		ArrayList<NodeSprite> moves = new ArrayList<NodeSprite>();
-		for (int i = 0; i < MATRIX_DIMENSION; i++) {
+	// --------------------------------------------------------------------
+	public Point getCurrentNode(String turn) {
+		Point point = null;
+		outerloop: for (int i = 0; i < MATRIX_DIMENSION; i++) {
 			for (int j = 0; j < MATRIX_DIMENSION; j++) {
-				if (turn == TURN.COMPUTER_RACE) {
-					NodeSprite nodeSprite = matrix[i][j];
-					if (nodeSprite.getType() == NodeSprite.X_TYPE) {
-						ArrayList<NodeSprite> canMoves = canMove(nodeSprite);
-						for (NodeSprite canMove : canMoves) {
-							insertUnique(moves, canMove);
-						}
-					}
-
-				} else if (turn == TURN.HUMAN_RACE) {
-					NodeSprite nodeSprite = matrix[i][j];
-					if (nodeSprite.getType() == NodeSprite.O_TYPE) {
-						ArrayList<NodeSprite> canMoves = canMove(nodeSprite);
-						for (NodeSprite canMove : canMoves) {
-							insertUnique(moves, canMove);
-						}
-					}
-
+				if (matrix[i][j] == turn) {
+					point = new Point(i, j);
+					break outerloop;
 				}
 			}
 		}
-		return moves;
+		return point;
 	}
 
 	// --------------------------------------------------------------------
-	public static void insertUnique(ArrayList<NodeSprite> arrayList,
-			NodeSprite insertNode) {
-		for (NodeSprite nodeSprite : arrayList) {
-			if (nodeSprite.getPoint().isEqual(insertNode.getPoint())) {
-				return;
-			}
-		}
-		arrayList.add(insertNode);
-	}
-
-	// --------------------------------------------------------------------
-	public static boolean exitsInList(ArrayList<NodeSprite> arrayList,
-			NodeSprite insertNode) {
-		for (NodeSprite nodeSprite : arrayList) {
-			if (nodeSprite.getPoint().isEqual(insertNode.getPoint())) {
+	public static boolean exitsInList(ArrayList<Point> listPoint, Point point) {
+		for (Point _point : listPoint) {
+			if (_point.isEqual(point)) {
 				return true;
 			}
 		}
 		return false;
+	}
+	// --------------------------------------------------------------------
+	public void printMatrix()
+	{
+		for (int i = 0; i < matrix.length; i++) {
+			for (int j = 0; j < matrix.length; j++) {
+				System.out.print(matrix[i][j]);
+			}
+		System.out.print("\n");
+		}
 	}
 
 }
